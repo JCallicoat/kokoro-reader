@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kokoro Reader Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Kokoro Reader</h1>
+
+    <div id="accessNotice" class="notice" hidden>
+      <span>Firefox has not allowed Kokoro Reader to reach <strong id="accessHost"></strong> yet.</span>
+      <button id="grantAccess" type="button">Allow access</button>
+    </div>
+
+    <form id="form" novalidate>
+      <fieldset>
+        <legend>Server</legend>
+        <label class="row">
+          <span>Server URL</span>
+          <input id="baseUrl" type="text" spellcheck="false" placeholder="http://localhost:8880">
+        </label>
+        <label class="row">
+          <span>Model</span>
+          <select id="model">
+            <option value="kokoro">kokoro</option>
+            <option value="tts-1">tts-1</option>
+            <option value="tts-1-hd">tts-1-hd</option>
+          </select>
+        </label>
+        <div class="row">
+          <label for="apiKey">API key</label>
+          <div class="inline">
+            <input id="apiKey" type="password" spellcheck="false" autocomplete="off">
+            <button id="apiKeyToggle" type="button" aria-controls="apiKey">Show</button>
+          </div>
+        </div>
+        <p class="hint small">
+          Kokoro-FastAPI ignores the API key; change it only when using OpenAI's server.
+          Voice mixing and the volume multiplier are Kokoro-FastAPI features, used only
+          with the <code>kokoro</code> model; the other models use Voice 1 alone.
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Voice mix</legend>
+        <label class="row">
+          <span>Voice 1 (required)</span>
+          <select id="voice1"></select>
+        </label>
+        <label class="row">
+          <span>Voice 2 (optional)</span>
+          <select id="voice2"></select>
+        </label>
+        <label class="row">
+          <span>Voice 3 (optional)</span>
+          <select id="voice3"></select>
+        </label>
+        <label class="row">
+          <span>Resulting voice</span>
+          <input id="voiceString" type="text" readonly tabindex="-1">
+        </label>
+        <div class="row actions">
+          <span></span>
+          <div class="inline">
+            <button id="reloadVoices" type="button">Reload voices</button>
+            <span id="voiceStatus" class="hint" role="status"></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Speech</legend>
+        <label class="row">
+          <span>Speed</span>
+          <input id="speed" type="number" min="0.25" max="4" step="0.05">
+        </label>
+        <label class="row">
+          <span>Volume multiplier <small>(server-side)</small></span>
+          <input id="volumeMultiplier" type="number" min="0.1" max="20" step="0.1">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Player</legend>
+        <label class="check">
+          <input id="keepPlayerOpen" type="checkbox">
+          <span>Keep player open after playback</span>
+        </label>
+        <label class="check sub">
+          <input id="loopPlayback" type="checkbox">
+          <span>Loop playback after end <small>(restart from the beginning)</small></span>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Appearance</legend>
+        <label class="check">
+          <input id="customPlayerColors" type="checkbox">
+          <span>Use custom player colors <small>(otherwise follows the system light/dark theme)</small></span>
+        </label>
+        <label class="row">
+          <span>Background color</span>
+          <input id="playerBackground" type="color">
+        </label>
+        <label class="row">
+          <span>Font color</span>
+          <input id="playerForeground" type="color">
+        </label>
+        <div class="row actions">
+          <span>Preview</span>
+          <div id="colorPreview" class="player-preview" aria-hidden="true">
+            <div class="preview-buttons">
+              <span class="preview-button">❚❚ Pause</span>
+              <span class="preview-button">■ Stop</span>
+            </div>
+            <div class="preview-track"><div class="preview-fill"></div></div>
+            <div class="preview-status"><span>Playing</span><span>0:42 / 1:30</span></div>
+          </div>
+        </div>
+        <div class="row actions">
+          <span></span>
+          <div class="inline">
+            <button id="colorsReset" type="button">Reset colors</button>
+            <span id="contrastHint" class="hint"></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Keyboard shortcut</legend>
+        <label class="row">
+          <span>Read selection aloud</span>
+          <input id="shortcut" type="text" readonly spellcheck="false"
+                 placeholder="(none)" aria-describedby="shortcutHint">
+        </label>
+        <div id="shortcutEditButtons" class="row actions">
+          <span></span>
+          <div class="inline">
+            <button id="shortcutClear" type="button">Clear</button>
+            <button id="shortcutReset" type="button">Reset to default</button>
+          </div>
+        </div>
+        <div id="shortcutBrowserButtons" class="row actions" hidden>
+          <span></span>
+          <div class="inline">
+            <button id="shortcutOpenSettings" type="button">Change in browser settings…</button>
+          </div>
+        </div>
+        <p id="shortcutHint" class="hint small">
+          Click the box and press the keys. Works in any tab while a browser window
+          is focused. Combinations the browser already uses may not trigger.
+        </p>
+      </fieldset>
+
+      <details>
+        <summary>Advanced</summary>
+        <fieldset>
+          <label class="row">
+            <span>PCM sample rate <small>(Hz)</small></span>
+            <input id="sampleRate" type="number" min="8000" max="96000" step="1000">
+          </label>
+          <label class="row">
+            <span>Start-up buffer <small>(ms)</small></span>
+            <input id="prebufferMs" type="number" min="0" max="5000" step="50">
+          </label>
+          <label class="row">
+            <span>Left/Right key scrub step <small>(s)</small></span>
+            <input id="scrubStepS" type="number" min="1" max="120" step="1">
+          </label>
+        </fieldset>
+      </details>
+
+      <div class="footer">
+        <span id="saveStatus" class="hint" role="status"></span>
+        <button id="save" type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </main>
+  <script src="../common/settings.js"></script>
+  <script src="shortcut.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

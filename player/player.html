@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" class="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Fixed title so window-manager rules (e.g. KWin) can match this window. -->
+  <title>Kokoro Reader Player</title>
+  <link rel="stylesheet" href="player.css">
+</head>
+<body>
+  <main id="player">
+    <div class="controls">
+      <button id="playPause" type="button" title="Play/Pause (Space)" disabled>
+        <svg class="icon icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
+        <svg class="icon icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+        <span id="playLabel">Play</span>
+      </button>
+      <button id="stop" type="button" title="Stop and close (Esc)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"/></svg>
+        <span>Stop</span>
+      </button>
+    </div>
+
+    <input id="seek" type="range" min="0" max="0" step="1" value="0" disabled
+           aria-label="Playback position"
+           title="Click or drag to seek within the buffered audio. Left/Right arrow keys scrub.">
+
+    <div id="statusBar" class="status-bar" role="status">
+      <span id="state" class="state">Starting…</span>
+      <span id="time" class="time">0:00 / 0:00</span>
+    </div>
+
+    <div id="error" class="error" hidden></div>
+  </main>
+  <script src="../common/settings.js"></script>
+  <script src="player.js"></script>
+</body>
+</html>

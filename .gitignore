@@ -1,0 +1,11 @@
+# Build output
+web-ext-artifacts/
+*.zip
+*.xpi
+*.crx
+
+# Editor and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
