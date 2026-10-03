@@ -1,0 +1,5 @@
+{
+  "summary": { "en-US": "Read selected text aloud using Kokoro-FastAPI or another OpenAI-compatible text-to-speech server." },
+  "categories": ["other"],
+  "version": { "license": "MIT" }
+}

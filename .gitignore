@@ -1,4 +1,5 @@
 # Build output
+.amo*
 web-ext-artifacts/
 *.zip
 *.xpi
