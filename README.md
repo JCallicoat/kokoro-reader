@@ -99,6 +99,11 @@ toolbar icon briefly shows a "?" badge.
   is ticked; then Play replays from the start.
 - **Loop playback after end** (only available with *Keep player open* ticked, off by
   default) starts the audio again from the beginning each time it reaches the end.
+- **Deselect text when playback starts** (under Advanced settings, off by default)
+  clears the highlighted selection on the page once its text has been handed to the
+  player, whether you used the menu item or the keyboard shortcut. In a text box, the
+  caret stays where the selection ended. It can't clear selections on pages where
+  extensions can't run scripts (`about:` and `chrome://` pages, the add-on stores).
 - Playback options, the scrub step and colors take effect in an open player as soon
   as you Save; server and voice settings apply to the next selection.
 - If the browser blocks audio from starting on its own, the status shows

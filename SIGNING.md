@@ -86,7 +86,7 @@ extension ID stays the same.
    export WEB_EXT_API_KEY='user:12345:67'
    export WEB_EXT_API_SECRET='your-jwt-secret'
    npx web-ext lint
-   npx web-ext sign --channel=listed --amo-metadata store_assets/amo-metadata.json \
+   npx web-ext sign --channel=listed --amo-metadata store-assets/amo-metadata.json \
      --ignore-files 'store-assets/**' build.sh SIGNING.md icons/icon.svg
    ```
 
