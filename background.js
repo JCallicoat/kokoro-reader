@@ -35,10 +35,14 @@ browser.action.onClicked.addListener(() => browser.runtime.openOptionsPage());
 
 // -- selection capture ----------------------------------------------------- //
 /* Runs inside the page. Reads the full selection, including selections inside
- * <textarea>/<input>, which window.getSelection() does not report. */
+ * <textarea>/<input>, which window.getSelection() does not report. Text boxes
+ * inside web components (shadow DOM) are found through each shadow root's
+ * activeElement. (Injected functions must be self-contained, so the lookup is
+ * repeated in clearSelectionInPage.) */
 function readSelectionInPage() {
   let text = "";
-  const el = document.activeElement;
+  let el = document.activeElement;
+  while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
   if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) {
     try {
       const start = el.selectionStart;
@@ -59,9 +63,11 @@ function readSelectionInPage() {
 
 /* Runs inside the page. Clears the selection: collapses a selection inside a
  * focused <textarea>/<input> (keeping the caret where the selection ended) and
- * removes the page's selection ranges. */
+ * removes the page's selection ranges. Text boxes keep their own selection, which
+ * removeAllRanges() doesn't touch in Firefox, so they're handled explicitly. */
 function clearSelectionInPage() {
-  const el = document.activeElement;
+  let el = document.activeElement;
+  while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
   if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) {
     try {
       const end = el.selectionEnd;
@@ -92,13 +98,17 @@ async function readSelectionFromTab(tabId, frameId) {
   return { text: best.result.text, frameId: sourceFrame };
 }
 
-/* Returns { text, tabId, frameId }. tabId/frameId are null when the text came from
- * the browser's fallback (the page couldn't be scripted), so it can't be deselected. */
+/* Returns { text, tabId, frameId } describing where the text came from, for
+ * "Deselect text when playback starts". When the page script finds nothing but the
+ * browser supplied the selection (menu clicks), the page is still scriptable, so
+ * the tab and frame are kept and the selection can still be cleared. tabId is null
+ * only when the page can't be scripted at all. */
 async function getSelectedText(tab, frameId, fallbackText = "") {
   if (tab && typeof tab.id === "number" && tab.id >= 0) {
     try {
       const found = await readSelectionFromTab(tab.id, frameId);
       if (found.text.trim()) return { text: found.text, tabId: tab.id, frameId: found.frameId };
+      return { text: fallbackText, tabId: tab.id, frameId: frameId === undefined ? null : frameId };
     } catch (err) {
       // Restricted pages (about:, addons.mozilla.org, some viewers) refuse scripting.
       console.debug("Kokoro Reader: could not read the selection from the page:", err);
@@ -187,11 +197,11 @@ async function readAloud(text, source = null) {
   // an existing one receives it through storage.onChanged.
   const session = { id: crypto.randomUUID(), text };
   await browser.storage.session.set({ currentSession: session });
-  // The text has been handed over, so the selection can go now; clearing it runs
-  // alongside opening the player rather than delaying it.
-  const deselecting = settings.deselectOnPlay ? clearSelection(source) : null;
+  // The text has been handed over, so the selection can go now. Clear it before the
+  // player window opens: once the page's window has lost focus, Firefox can restore
+  // a text box's old selection when the window is activated again.
+  if (settings.deselectOnPlay) await clearSelection(source);
   await showPlayer();
-  await deselecting;
 }
 
 async function onMenuClicked(info, tab) {

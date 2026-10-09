@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kokoro Reader",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Read selected text aloud using Kokoro-FastAPI or another OpenAI-compatible text-to-speech server.",
   "homepage_url": "https://github.com/JCallicoat/kokoro-reader",
   "developer": {
