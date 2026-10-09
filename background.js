@@ -61,11 +61,16 @@ function readSelectionInPage() {
   return { text, focused: document.hasFocus() };
 }
 
-/* Runs inside the page. Clears the selection: collapses a selection inside a
- * focused <textarea>/<input> (keeping the caret where the selection ended) and
- * removes the page's selection ranges. Text boxes keep their own selection, which
- * removeAllRanges() doesn't touch in Firefox, so they're handled explicitly. */
-function clearSelectionInPage() {
+/* Runs inside the page. Clears the selection, keeping a caret where it ended:
+ * - <textarea>/<input> keep their own selection, which removeAllRanges() doesn't
+ *   touch in Firefox, so it is collapsed with setSelectionRange();
+ * - rich-text editors (contenteditable, e.g. ProseMirror, Lexical, CodeMirror) keep
+ *   a copy of the selection in their own state, ignore an empty DOM selection and
+ *   put the old one back when they regain focus, so the selection is collapsed to a
+ *   caret instead, which they record; the script then waits briefly for the editor
+ *   to see the change before the player window takes focus;
+ * - anything else just has its selection removed. */
+async function clearSelectionInPage() {
   let el = document.activeElement;
   while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
   if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) {
@@ -80,7 +85,20 @@ function clearSelectionInPage() {
     }
   }
   const selection = window.getSelection();
-  if (selection) selection.removeAllRanges();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+  const node = selection.focusNode;
+  const container = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+  if (!container || !container.isContentEditable) {
+    selection.removeAllRanges();
+    return;
+  }
+  const seen = new Promise((resolve) =>
+    document.addEventListener("selectionchange", resolve, { once: true })
+  );
+  selection.collapseToEnd();
+  // selectionchange fires asynchronously; editors may defer handling it a little.
+  await Promise.race([seen, new Promise((resolve) => setTimeout(resolve, 150))]);
+  await new Promise((resolve) => setTimeout(resolve, 50));
 }
 
 /* Read the selection from one frame (menu click) or from every frame (keyboard
