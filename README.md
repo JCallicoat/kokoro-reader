@@ -15,6 +15,15 @@ One package works in both browser families:
 
 ## Install
 
+The extensions are currently unlisted during testing and development and will be publicly
+published at a later point.
+
+Chromium-based browser users can install from the Chrome Web Store using this direct link:
+
+https://chromewebstore.google.com/detail/kokoro-reader/dgdpdlfobcegeelpjlembcecbkeokmhd
+
+Firefox users can download the [signed xpi package](kokoro-reader.xpi).
+
 ### Firefox
 
 - **Signed build:** about:addons → gear menu → **Install Add-on From File…** and pick
