@@ -19,6 +19,9 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"/></svg>
         <span>Stop</span>
       </button>
+      <button id="save" type="button" class="icon-only" title="Save audio" aria-label="Save audio" disabled>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v8.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17zM5 18h14v2H5z"/></svg>
+      </button>
     </div>
 
     <input id="seek" type="range" min="0" max="0" step="1" value="0" disabled
@@ -33,6 +36,7 @@
     <div id="error" class="error" hidden></div>
   </main>
   <script src="../common/settings.js"></script>
+  <script src="export.js"></script>
   <script src="player.js"></script>
 </body>
 </html>

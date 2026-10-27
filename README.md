@@ -3,7 +3,7 @@
 Right-click selected text and choose **Read selection aloud**. The text is sent to a
 Kokoro-FastAPI server, or another server with the OpenAI text-to-speech API
 (`POST /v1/audio/speech`, raw PCM, streamed), buffered in memory and played in a
-small player window with Play/Pause, Stop and a seek slider.
+small player window with Play/Pause, Stop, Save and a seek slider.
 
 Source, issues and releases: <https://github.com/JCallicoat/kokoro-reader>
 
@@ -102,6 +102,11 @@ toolbar icon briefly shows a "?" badge.
 - **Play/Pause** (Space), **Stop** (Esc) — Stop always closes the window.
 - **Seek slider** — click or drag within the audio received so far.
 - **Left/Right arrow** — scrub by the step set in Advanced settings.
+- **Save** (download icon) — once all the audio has arrived, saves it through the
+  browser's "Save as" dialog, as Opus by default or WAV (*Save audio as* under Advanced
+  settings). Browsers that can't encode Opus, such as Firefox for Android, save WAV.
+  The first save asks for permission to download files. Playback pauses while the
+  dialog is open and resumes afterwards; a selection read meanwhile is ignored.
 - Choosing *Read selection aloud* while the player is open replaces the current audio
   in the same window.
 - When playback finishes the window closes, unless **Keep player open after playback**
@@ -168,6 +173,34 @@ or position takes precedence over that.
 The same zip is submitted to addons.mozilla.org and the Chrome Web Store; `SIGNING.md`
 has the steps for both. `store-assets/` holds images for the store listings and isn't
 part of the package.
+
+### Testing locally for development
+
+Both of these use a throwaway profile, so an installed copy of the extension and your
+everyday profile are left alone.
+
+- **Firefox:** [web-ext](https://github.com/mozilla/web-ext) starts Firefox with a
+  fresh temporary profile, loads the extension from this folder and reloads it when
+  files change (press `r` in the terminal to reload by hand):
+
+  ```sh
+  npx web-ext run --source-dir .
+  # Firefox installed from Flathub:
+  npx web-ext run --source-dir . --firefox=flatpak:org.mozilla.firefox
+  ```
+
+  Each run starts with default settings and no optional permissions granted. Add
+  `--firefox-profile=<dir> --keep-profile-changes` to keep them between runs. To see
+  the logs, open `about:debugging` → This Firefox → Kokoro Reader → **Inspect** for
+  the background page, or right-click → **Inspect** in the player window.
+
+- **Chromium:** start it with a separate user data directory, then open
+  `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick
+  this folder. Click the extension's reload button after changing files.
+
+  ```sh
+  chromium --user-data-dir=/tmp/kokoro-reader-chromium
+  ```
 
 ## Privacy
 

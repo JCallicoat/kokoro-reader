@@ -174,6 +174,17 @@
             <input id="deselectOnPlay" type="checkbox">
             <span>Deselect text when playback starts <small>(clears the highlighted selection on the page once it has been sent to the player)</small></span>
           </label>
+          <label class="row">
+            <span>Save audio as</span>
+            <select id="saveFormat">
+              <option value="opus">Opus (.opus)</option>
+              <option value="wav">WAV (.wav)</option>
+            </select>
+          </label>
+          <p class="hint small">
+            Format of the player's Save button. Browsers that can't encode Opus (such as
+            Firefox for Android) save WAV instead.
+          </p>
         </fieldset>
       </details>
 

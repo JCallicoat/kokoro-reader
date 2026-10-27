@@ -76,6 +76,8 @@ The extension requests these browser permissions, used only as described:
   your own computer.
 - **Optional access to other hosts:** requested only when you enter a server address
   elsewhere, and only for that server.
+- **Optional downloads:** requested the first time you click Save in the player, to
+  save the spoken audio to a file you choose. The audio is encoded on your device.
 
 ## Children
 

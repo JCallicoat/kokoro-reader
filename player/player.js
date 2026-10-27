@@ -11,6 +11,7 @@ const ui = {
   playPause: document.getElementById("playPause"),
   playLabel: document.getElementById("playLabel"),
   stop: document.getElementById("stop"),
+  save: document.getElementById("save"),
   seek: document.getElementById("seek"),
   state: document.getElementById("state"),
   time: document.getElementById("time"),
@@ -25,6 +26,7 @@ let needsGesture = false; // AudioContext is suspended until the user clicks Pla
 let session = null;
 let dragging = false;
 let widthFitted = false;
+let saving = false; // Save in progress: playback is held and new selections are ignored
 
 // -- audio context ----------------------------------------------------------- //
 function ensureContext(rate) {
@@ -93,6 +95,8 @@ async function startSession({ id, text }) {
     controller: new AbortController(),
     state: null, // last report from the worklet
     received: 0, // frames sent to the worklet
+    rate: 0, // PCM sample rate
+    pcm: [], // received PCM (Uint8Array chunks, whole samples), kept for saving
     carry: null, // odd trailing byte of a network chunk
     complete: false,
     warning: "",
@@ -109,7 +113,8 @@ async function startSession({ id, text }) {
     settings = await loadSettings();
     applyPlayerColors(document.documentElement, settings);
     if (session !== s) return;
-    ctx = await ensureContext(settings.sampleRate);
+    s.rate = settings.sampleRate;
+    ctx = await ensureContext(s.rate);
     if (session !== s) return;
     const prebufferFrames = Math.round((ctx.sampleRate * settings.prebufferMs) / 1000);
     s.node = new AudioWorkletNode(ctx, "pcm-player", {
@@ -158,7 +163,7 @@ function onWorkletState(s) {
       fail(s, "The server returned no audio.");
       return;
     }
-    if (!settings.keepPlayerOpen) {
+    if (!settings.keepPlayerOpen && !saving) {
       // Give the output device time to play the last block before closing.
       const latency = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
       s.closeTimer = setTimeout(closeWindow, Math.round(latency * 1000) + 200);
@@ -181,6 +186,7 @@ function feed(s, chunk) {
   const usable = bytes.length - (bytes.length % 2);
   if (usable < bytes.length) s.carry = bytes[bytes.length - 1];
   if (usable === 0) return;
+  s.pcm.push(bytes.subarray(0, usable));
 
   // Signed 16-bit little-endian mono -> Float32 in [-1, 1).
   const frames = usable / 2;
@@ -260,7 +266,7 @@ function unreachableMessage(err) {
 // -- controls ---------------------------------------------------------------- //
 async function onPlayPause() {
   const s = session;
-  if (!s || !s.node || s.error || !ctx) return;
+  if (!s || !s.node || s.error || !ctx || saving) return;
 
   if (ctx.state !== "running") {
     try {
@@ -289,7 +295,7 @@ async function onPlayPause() {
 
 function scrub(direction) {
   const s = session;
-  if (s && s.node && !s.error) {
+  if (s && s.node && !s.error && !saving) {
     s.node.port.postMessage({ type: "seekBy", seconds: direction * settings.scrubStepS });
   }
 }
@@ -307,8 +313,124 @@ function stop() {
   closeWindow();
 }
 
+// -- saving ------------------------------------------------------------------ //
+function canSave(s) {
+  return Boolean(s && s.node && !s.error && s.complete && s.pcm.length);
+}
+
+/* Playback pauses while the save dialog is open and resumes afterwards if it was
+ * playing. The format comes from Settings; the download dialog only picks where. */
+async function onSave() {
+  const s = session;
+  if (!canSave(s) || saving) return;
+  // Synchronous with the click: Firefox only shows permission prompts in response
+  // to user input. Resolves at once without a prompt when already granted.
+  const access = browser.permissions.request({ permissions: ["downloads"] }).catch(() => false);
+
+  const st = s.state;
+  const wasPlaying = Boolean(st && !st.paused && !st.finished && !needsGesture);
+  if (wasPlaying) {
+    s.node.port.postMessage({ type: "pause", paused: true });
+    st.paused = true; // optimistic until the next report
+  }
+  saving = true;
+  clearTimeout(s.closeTimer);
+  showError("");
+  render();
+
+  let done = false; // saved, or the user cancelled
+  try {
+    if (!(await access)) throw new Error("Kokoro Reader needs permission to download files. Click Save again and allow it.");
+    if (s.warning && !window.confirm(`${s.warning.split(";")[0]}, so the audio is incomplete. Save what was received?`)) {
+      done = true;
+      return;
+    }
+    const { blob, extension } = await encodeAudio(s.pcm, s.rate, settings.saveFormat);
+    if (session !== s) return;
+    await downloadBlob(blob, `${saveFileStem()}.${extension}`);
+    done = true;
+  } catch (err) {
+    if (session === s) showError("Could not save the audio: " + (err && err.message ? err.message : err));
+  } finally {
+    saving = false;
+    if (session === s) {
+      if (wasPlaying) {
+        s.node.port.postMessage({ type: "play" });
+        if (s.state) s.state.paused = false;
+      } else if (done && s.state && s.state.finished && !settings.keepPlayerOpen) {
+        closeWindow(); // playback had ended, so the window would have closed already
+      }
+      render();
+    }
+  }
+}
+
+/** kokoro-YYYY-MM-DD-HHMMSS in local time. */
+function saveFileStem() {
+  const now = new Date();
+  const two = (n) => String(n).padStart(2, "0");
+  const date = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+  return `kokoro-${date}-${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
+}
+
+/* Download a Blob through the browser's "Save as" dialog. Resolves once the dialog
+ * has closed, whether a file was chosen or not. */
+async function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const options = { url, filename, saveAs: true };
+  // Firefox for Android has no "Save as" dialog; it saves to the download folder.
+  if ((await browser.runtime.getPlatformInfo()).os === "android") delete options.saveAs;
+  let id;
+  try {
+    id = await browser.downloads.download(options);
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    if (/cancel/i.test(String(err && err.message))) return; // dialog dismissed (Firefox)
+    throw err;
+  }
+  await watchDownload(id, url);
+}
+
+/* Firefox resolves downloads.download() after the dialog closes; Chrome resolves
+ * straight away and asks for the file name afterwards, so wait until the download
+ * has a file name (chosen) or is interrupted (cancelled). The object URL is released
+ * once the browser is done reading it. */
+function watchDownload(id, url) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    const cleanup = () => {
+      browser.downloads.onChanged.removeListener(onChanged);
+      browser.downloads.onErased.removeListener(onErased);
+      URL.revokeObjectURL(url);
+      settle();
+    };
+    const check = (items) => {
+      const item = items && items[0];
+      if (!item) return;
+      if (item.filename || item.state !== "in_progress") settle();
+      if (item.state !== "in_progress") cleanup();
+    };
+    const onChanged = (delta) => {
+      if (delta.id === id) browser.downloads.search({ id }).then(check, cleanup);
+    };
+    const onErased = (erasedId) => {
+      if (erasedId === id) cleanup();
+    };
+    browser.downloads.onChanged.addListener(onChanged);
+    browser.downloads.onErased.addListener(onErased);
+    browser.downloads.search({ id }).then(check, cleanup);
+  });
+}
+
 ui.playPause.addEventListener("click", onPlayPause);
 ui.stop.addEventListener("click", stop);
+ui.save.addEventListener("click", onSave);
 
 ui.seek.addEventListener("pointerdown", () => {
   dragging = true;
@@ -399,6 +521,7 @@ function render() {
       playing = true;
     }
     if (playing) label = "Pause";
+    if (saving) stateText = "Saving…";
     if (!s.complete) stateText += " (receiving)";
     if (s.warning) {
       stateText += " · ⚠ " + s.warning;
@@ -407,10 +530,11 @@ function render() {
   }
 
   const ready = Boolean(s && s.node && !s.error);
-  ui.playPause.disabled = !ready;
+  ui.playPause.disabled = !ready || saving;
   ui.playPause.classList.toggle("playing", playing && ready);
   ui.playLabel.textContent = label;
-  ui.seek.disabled = !ready || len === 0;
+  ui.seek.disabled = !ready || len === 0 || saving;
+  ui.save.disabled = !canSave(s) || saving;
 
   const totalMs = Math.round((len / rate) * 1000);
   if (!dragging) {
@@ -453,7 +577,8 @@ async function fitWindow() {
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "session" || !changes.currentSession) return;
   const next = changes.currentSession.newValue;
-  if (next && next.id) startSession(next);
+  // A selection read while the save dialog is open is dropped rather than queued.
+  if (next && next.id && !saving) startSession(next);
 });
 
 // Settings saved while the player is open apply straight away where they can.
@@ -461,13 +586,14 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (area !== "local") return;
   const fresh = await loadSettings();
   applyPlayerColors(document.documentElement, fresh);
-  // Playback behaviour and colors update live; server and voice settings are
+  // Playback behaviour, the save format and colors update live; server and voice settings are
   // read again when the next selection starts.
   settings = {
     ...settings,
     keepPlayerOpen: fresh.keepPlayerOpen,
     loopPlayback: fresh.loopPlayback,
     scrubStepS: fresh.scrubStepS,
+    saveFormat: fresh.saveFormat,
     customPlayerColors: fresh.customPlayerColors,
     playerBackground: fresh.playerBackground,
     playerForeground: fresh.playerForeground,

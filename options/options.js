@@ -157,6 +157,7 @@ function fillForm(s) {
   $("prebufferMs").value = s.prebufferMs;
   $("scrubStepS").value = s.scrubStepS;
   $("deselectOnPlay").checked = s.deselectOnPlay;
+  $("saveFormat").value = s.saveFormat;
   $("customPlayerColors").checked = s.customPlayerColors;
   $("playerBackground").value = s.playerBackground;
   $("playerForeground").value = s.playerForeground;
@@ -189,6 +190,7 @@ function readForm() {
     prebufferMs: Math.round(readNumber("prebufferMs", d.prebufferMs)),
     scrubStepS: Math.round(readNumber("scrubStepS", d.scrubStepS)),
     deselectOnPlay: $("deselectOnPlay").checked,
+    saveFormat: SAVE_FORMATS.includes($("saveFormat").value) ? $("saveFormat").value : d.saveFormat,
     ...readColors(),
   };
 }

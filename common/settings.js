@@ -22,6 +22,9 @@ const OPENAI_TTS1_VOICES = Object.freeze([
   "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
 ]);
 
+/** File formats the player can save; Opus falls back to WAV where it can't be encoded. */
+const SAVE_FORMATS = Object.freeze(["opus", "wav"]);
+
 const DEFAULT_SETTINGS = Object.freeze({
   baseUrl: "http://localhost:8880",
   model: "kokoro",
@@ -34,6 +37,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   prebufferMs: 400,
   scrubStepS: 5,
   deselectOnPlay: false,
+  saveFormat: "opus",
   loopPlayback: false,
   customPlayerColors: false,
   playerBackground: "#1c1b22",
@@ -73,6 +77,7 @@ async function loadSettings() {
     prebufferMs: Math.round(clampNumber(stored.prebufferMs, 0, 5000, d.prebufferMs)),
     scrubStepS: Math.round(clampNumber(stored.scrubStepS, 1, 120, d.scrubStepS)),
     deselectOnPlay: Boolean(stored.deselectOnPlay),
+    saveFormat: SAVE_FORMATS.includes(stored.saveFormat) ? stored.saveFormat : d.saveFormat,
     customPlayerColors: Boolean(stored.customPlayerColors),
     playerBackground: normalizeHexColor(stored.playerBackground, d.playerBackground),
     playerForeground: normalizeHexColor(stored.playerForeground, d.playerForeground),
