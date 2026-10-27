@@ -68,6 +68,7 @@ input[type="text"], input[type="number"], select {
   color: var(--fg);
   font: inherit;
 }
+select.weight { width: auto; flex: none; }
 input[readonly] { color: var(--muted); }
 input.invalid, select.invalid { border-color: var(--error); }
 

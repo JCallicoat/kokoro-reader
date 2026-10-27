@@ -39,25 +39,35 @@
         </div>
         <p class="hint small">
           Kokoro-FastAPI ignores the API key; change it only when using OpenAI's server.
-          Voice mixing and the volume multiplier are Kokoro-FastAPI features, used only
-          with the <code>kokoro</code> model; the other models use Voice 1 alone.
+          Voice mixing (with its weights) and the volume multiplier are Kokoro-FastAPI
+          features, used only with the <code>kokoro</code> model; the other models use
+          Voice 1 alone.
         </p>
       </fieldset>
 
       <fieldset>
         <legend>Voice mix</legend>
-        <label class="row">
-          <span>Voice 1 (required)</span>
-          <select id="voice1"></select>
-        </label>
-        <label class="row">
-          <span>Voice 2 (optional)</span>
-          <select id="voice2"></select>
-        </label>
-        <label class="row">
-          <span>Voice 3 (optional)</span>
-          <select id="voice3"></select>
-        </label>
+        <div class="row">
+          <label for="voice1">Voice 1 (required)</label>
+          <div class="inline">
+            <select id="voice1"></select>
+            <select id="weight1" class="weight" aria-label="Voice 1 weight" title="Weight in the mix"></select>
+          </div>
+        </div>
+        <div class="row">
+          <label for="voice2">Voice 2 (optional)</label>
+          <div class="inline">
+            <select id="voice2"></select>
+            <select id="weight2" class="weight" aria-label="Voice 2 weight" title="Weight in the mix"></select>
+          </div>
+        </div>
+        <div class="row">
+          <label for="voice3">Voice 3 (optional)</label>
+          <div class="inline">
+            <select id="voice3"></select>
+            <select id="weight3" class="weight" aria-label="Voice 3 weight" title="Weight in the mix"></select>
+          </div>
+        </div>
         <label class="row">
           <span>Resulting voice</span>
           <input id="voiceString" type="text" readonly tabindex="-1">
@@ -93,6 +103,17 @@
           <input id="loopPlayback" type="checkbox">
           <span>Loop playback after end <small>(restart from the beginning)</small></span>
         </label>
+        <label class="row">
+          <span>Save audio as</span>
+          <select id="saveFormat">
+            <option value="opus">Opus (.opus)</option>
+            <option value="wav">WAV (.wav)</option>
+          </select>
+        </label>
+        <p class="hint small">
+          Format of the player's Save button. Browsers that can't encode Opus (such as
+          Firefox for Android) save WAV instead.
+        </p>
       </fieldset>
 
       <fieldset>
@@ -174,17 +195,6 @@
             <input id="deselectOnPlay" type="checkbox">
             <span>Deselect text when playback starts <small>(clears the highlighted selection on the page once it has been sent to the player)</small></span>
           </label>
-          <label class="row">
-            <span>Save audio as</span>
-            <select id="saveFormat">
-              <option value="opus">Opus (.opus)</option>
-              <option value="wav">WAV (.wav)</option>
-            </select>
-          </label>
-          <p class="hint small">
-            Format of the player's Save button. Browsers that can't encode Opus (such as
-            Firefox for Android) save WAV instead.
-          </p>
         </fieldset>
       </details>
 

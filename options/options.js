@@ -4,6 +4,10 @@
 
 const $ = (id) => document.getElementById(id);
 const voiceBoxes = [$("voice1"), $("voice2"), $("voice3")];
+const weightBoxes = [$("weight1"), $("weight2"), $("weight3")];
+for (const box of weightBoxes) {
+  for (let w = 1; w <= VOICE_WEIGHT_MAX; w++) box.add(new Option(String(w), String(w)));
+}
 const VOICE_FETCH_TIMEOUT_MS = 10000;
 
 let fetchController = null;
@@ -64,6 +68,10 @@ function currentSelection() {
   return voiceBoxes.map((box) => box.value || "");
 }
 
+function currentWeights() {
+  return weightBoxes.map((box) => Math.round(clampNumber(box.value, 1, VOICE_WEIGHT_MAX, 1)));
+}
+
 function setVoiceChoices(voices, selected, keepMissing) {
   voiceBoxes.forEach((box, index) => {
     box.replaceChildren();
@@ -78,8 +86,14 @@ function setVoiceChoices(voices, selected, keepMissing) {
 }
 
 function updateVoiceString() {
-  $("voiceString").value = effectiveVoice({ model: $("model").value, voices: currentSelection() });
+  const model = $("model").value;
+  const voices = currentSelection();
+  $("voiceString").value = effectiveVoice({ model, voices, voiceWeights: currentWeights() });
   $("voice1").classList.toggle("invalid", false);
+  // Weights only mean something for a chosen voice in a kokoro mix.
+  weightBoxes.forEach((box, index) => {
+    box.disabled = model !== "kokoro" || !voices[index];
+  });
 }
 
 /* Voice mixing and the volume multiplier only apply to the kokoro model. */
@@ -162,6 +176,9 @@ function fillForm(s) {
   $("playerBackground").value = s.playerBackground;
   $("playerForeground").value = s.playerForeground;
   updateColorPreview();
+  weightBoxes.forEach((box, index) => {
+    box.value = String(s.voiceWeights[index]);
+  });
   // Start with the saved selection so the mix stays valid even if the server is down.
   setVoiceChoices([], s.voices, true);
 }
@@ -182,6 +199,7 @@ function readForm() {
     model: MODEL_OPTIONS.includes($("model").value) ? $("model").value : d.model,
     apiKey: $("apiKey").value.trim(),
     voices: currentSelection(),
+    voiceWeights: currentWeights(),
     speed: readNumber("speed", d.speed),
     volumeMultiplier: readNumber("volumeMultiplier", d.volumeMultiplier),
     keepPlayerOpen: $("keepPlayerOpen").checked,
@@ -344,6 +362,7 @@ function onReloadClicked() {
 async function init() {
   fillForm(await loadSettings());
   voiceBoxes.forEach((box) => box.addEventListener("change", updateVoiceString));
+  weightBoxes.forEach((box) => box.addEventListener("change", updateVoiceString));
   updateModelDependent();
   $("model").addEventListener("change", updateModelDependent);
   $("apiKeyToggle").addEventListener("click", () => {

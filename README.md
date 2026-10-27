@@ -71,12 +71,16 @@ OpenAI's own API.
   Kokoro-FastAPI ignores. Clearing the field sends no header. The key is stored
   unencrypted in the extension's local storage, like the other settings.
 - **Model.** With `kokoro`, requests include the Kokoro-FastAPI extras: voice mixing
-  (Voice 2 and 3), `volume_multiplier` and `stream`. With `tts-1` or `tts-1-hd`, only
+  (Voice 2 and 3, with weights), `volume_multiplier` and `stream`. With `tts-1` or `tts-1-hd`, only
   the parameters OpenAI documents are sent (model, input, voice, response format,
   speed), so Voice 2/3 and the volume multiplier are disabled in Settings and only
   Voice 1 is used.
 - **Voices.** OpenAI has no voice-list endpoint, so when **Reload voices** gets a
   404 from the server, Settings offers the standard OpenAI voices instead.
+- **Voice weights.** With `kokoro`, each voice has a weight from 1 to 10 (default 1)
+  that sets its share of the mix. When every weight is 1 the voices are mixed evenly
+  (`af_bella+af_heart`); otherwise each voice is sent with its weight
+  (`af_bella(2)+af_heart(1)`). *Resulting voice* shows the string that will be sent.
 - **Audio format.** Both servers return PCM as 24 kHz, 16-bit signed little-endian
   mono, which matches the default sample rate under Advanced settings.
 - **Access.** For a server other than localhost, such as `api.openai.com`, click
@@ -103,7 +107,7 @@ toolbar icon briefly shows a "?" badge.
 - **Seek slider** — click or drag within the audio received so far.
 - **Left/Right arrow** — scrub by the step set in Advanced settings.
 - **Save** (download icon) — once all the audio has arrived, saves it through the
-  browser's "Save as" dialog, as Opus by default or WAV (*Save audio as* under Advanced
+  browser's "Save as" dialog, as Opus by default or WAV (*Save audio as* in the Player
   settings). Browsers that can't encode Opus, such as Firefox for Android, save WAV.
   The first save asks for permission to download files. Playback pauses while the
   dialog is open and resumes afterwards; a selection read meanwhile is ignored.

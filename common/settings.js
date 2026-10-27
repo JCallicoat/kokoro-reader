@@ -22,6 +22,9 @@ const OPENAI_TTS1_VOICES = Object.freeze([
   "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
 ]);
 
+/** Voice mix weights offered in Settings (Kokoro-FastAPI's "voice(weight)" syntax). */
+const VOICE_WEIGHT_MAX = 10;
+
 /** File formats the player can save; Opus falls back to WAV where it can't be encoded. */
 const SAVE_FORMATS = Object.freeze(["opus", "wav"]);
 
@@ -30,6 +33,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   model: "kokoro",
   apiKey: DEFAULT_API_KEY,
   voices: ["", "", ""],
+  voiceWeights: [1, 1, 1],
   speed: 1.0,
   volumeMultiplier: 1.0,
   keepPlayerOpen: false,
@@ -64,11 +68,14 @@ async function loadSettings() {
   const d = DEFAULT_SETTINGS;
   const voices = Array.isArray(stored.voices) ? stored.voices.slice(0, 3) : [];
   while (voices.length < 3) voices.push("");
+  const weights = Array.isArray(stored.voiceWeights) ? stored.voiceWeights.slice(0, 3) : [];
+  while (weights.length < 3) weights.push(1);
   return {
     baseUrl: String(stored.baseUrl || d.baseUrl),
     model: MODEL_OPTIONS.includes(stored.model) ? stored.model : d.model,
     apiKey: typeof stored.apiKey === "string" ? stored.apiKey.trim() : d.apiKey,
     voices: voices.map((v) => (typeof v === "string" ? v : "")),
+    voiceWeights: weights.map((w) => Math.round(clampNumber(w, 1, VOICE_WEIGHT_MAX, 1))),
     speed: clampNumber(stored.speed, 0.25, 4.0, d.speed),
     volumeMultiplier: clampNumber(stored.volumeMultiplier, 0.1, 20.0, d.volumeMultiplier),
     keepPlayerOpen: Boolean(stored.keepPlayerOpen),
@@ -159,11 +166,18 @@ function buildSpeechPayload(settings, text) {
 
 /** Voice mixing ("a+b") is a Kokoro-FastAPI feature; other models get Voice 1 only. */
 function effectiveVoice(settings) {
-  return settings.model === "kokoro" ? voiceString(settings.voices) : settings.voices[0] || "";
+  return settings.model === "kokoro" ? voiceString(settings.voices, settings.voiceWeights) : settings.voices[0] || "";
 }
 
-function voiceString(voices) {
-  return voices.filter((v) => v).join("+");
+/* "a+b", or "a(2)+b(1)" when the mix isn't even: once any chosen voice has a weight
+ * other than 1, every voice gets one. A single voice needs no weight. */
+function voiceString(voices, weights = []) {
+  const parts = [];
+  voices.forEach((voice, index) => {
+    if (voice) parts.push({ voice, weight: weights[index] || 1 });
+  });
+  const weighted = parts.length > 1 && parts.some((p) => p.weight !== 1);
+  return parts.map((p) => (weighted ? `${p.voice}(${p.weight})` : p.voice)).join("+");
 }
 
 function normalizeBaseUrl(baseUrl) {
