@@ -164,6 +164,7 @@ function fillForm(s) {
   $("apiKey").value = s.apiKey;
   $("speed").value = s.speed;
   $("volumeMultiplier").value = s.volumeMultiplier;
+  $("playerMode").value = s.playerMode;
   $("keepPlayerOpen").checked = s.keepPlayerOpen;
   $("loopPlayback").checked = s.loopPlayback;
   updateLoopEnabled();
@@ -202,6 +203,7 @@ function readForm() {
     voiceWeights: currentWeights(),
     speed: readNumber("speed", d.speed),
     volumeMultiplier: readNumber("volumeMultiplier", d.volumeMultiplier),
+    playerMode: PLAYER_MODES.includes($("playerMode").value) ? $("playerMode").value : d.playerMode,
     keepPlayerOpen: $("keepPlayerOpen").checked,
     loopPlayback: $("loopPlayback").checked,
     sampleRate: Math.round(readNumber("sampleRate", d.sampleRate)),
@@ -404,6 +406,9 @@ async function init() {
     window.addEventListener("focus", () => loadShortcut());
   }
   $("keepPlayerOpen").addEventListener("change", updateLoopEnabled);
+  // Firefox for Android has no side panel; the player always opens in a window there.
+  $("playerModeRow").hidden = !PANEL_SUPPORTED;
+  $("playerModeHint").hidden = !PANEL_SUPPORTED;
   $("shortcutClear").addEventListener("click", () => {
     showShortcut("");
     setStatus($("saveStatus"), "Shortcut cleared. Click Save to apply.");

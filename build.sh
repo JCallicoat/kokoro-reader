@@ -10,5 +10,5 @@ rm -f "$out"
 zip -qr "$out" . \
   -x '.*' -x '*/.*' \
   -x 'web-ext-artifacts/*' -x 'store-assets/*' \
-  -x 'build.sh' -x 'SIGNING.md' -x 'icons/icon.svg'
+  -x 'build.sh' -x 'run.sh' -x 'SIGNING.md' -x 'icons/icon.svg'
 echo "Built $out"

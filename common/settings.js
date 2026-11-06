@@ -25,6 +25,15 @@ const OPENAI_TTS1_VOICES = Object.freeze([
 /** Voice mix weights offered in Settings (Kokoro-FastAPI's "voice(weight)" syntax). */
 const VOICE_WEIGHT_MAX = 10;
 
+/** Where the player is shown: the browser's side panel (sidebar) or a popup window. */
+const PLAYER_MODES = Object.freeze(["panel", "window"]);
+
+/** Firefox for Android has no side panel; the player always uses a window there. */
+const PANEL_SUPPORTED = Boolean(browser.sidebarAction || browser.sidePanel);
+
+/** A "nothing to read" message older than this is ignored by a panel opening later. */
+const PANEL_DISMISS_MAX_AGE_MS = 5000;
+
 /** File formats the player can save; Opus falls back to WAV where it can't be encoded. */
 const SAVE_FORMATS = Object.freeze(["opus", "wav"]);
 
@@ -36,7 +45,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   voiceWeights: [1, 1, 1],
   speed: 1.0,
   volumeMultiplier: 1.0,
-  keepPlayerOpen: false,
+  playerMode: "panel",
+  keepPlayerOpen: true,
   sampleRate: 24000,
   prebufferMs: 400,
   scrubStepS: 5,
@@ -78,6 +88,7 @@ async function loadSettings() {
     voiceWeights: weights.map((w) => Math.round(clampNumber(w, 1, VOICE_WEIGHT_MAX, 1))),
     speed: clampNumber(stored.speed, 0.25, 4.0, d.speed),
     volumeMultiplier: clampNumber(stored.volumeMultiplier, 0.1, 20.0, d.volumeMultiplier),
+    playerMode: PLAYER_MODES.includes(stored.playerMode) ? stored.playerMode : d.playerMode,
     keepPlayerOpen: Boolean(stored.keepPlayerOpen),
     loopPlayback: Boolean(stored.loopPlayback),
     sampleRate: Math.round(clampNumber(stored.sampleRate, 8000, 96000, d.sampleRate)),

@@ -95,9 +95,21 @@
 
       <fieldset>
         <legend>Player</legend>
+        <label id="playerModeRow" class="row">
+          <span>Show player in</span>
+          <select id="playerMode">
+            <option value="panel">Side panel</option>
+            <option value="window">Separate window</option>
+          </select>
+        </label>
+        <p id="playerModeHint" class="hint small">
+          The side panel opens in the browser window you're reading in. Firefox shows
+          one sidebar at a time, so it takes the place of Bookmarks, History or another
+          extension's sidebar.
+        </p>
         <label class="check">
           <input id="keepPlayerOpen" type="checkbox">
-          <span>Keep player open after playback</span>
+          <span>Keep player open when playback ends <small>(otherwise the panel or window closes)</small></span>
         </label>
         <label class="check sub">
           <input id="loopPlayback" type="checkbox">

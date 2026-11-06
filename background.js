@@ -1,5 +1,6 @@
-/* Background event page: context menu, selection capture, player window management.
- * Audio is handled entirely by the player window; this script only hands it text. */
+/* Background event page: context menu, selection capture, opening the player (side
+ * panel or popup window). Audio is handled entirely by the player; this script only
+ * hands it text. */
 
 "use strict";
 
@@ -29,6 +30,10 @@ browser.runtime.onStartup.addListener(createMenu);
 browser.contextMenus.onClicked.addListener(onMenuClicked);
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.commands.onCommand.addListener(onCommand);
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.playerMode) syncPlayerMode();
+});
+syncPlayerMode();
 
 // Clicking the toolbar button or the entry in the Extensions menu opens Settings.
 browser.action.onClicked.addListener(() => browser.runtime.openOptionsPage());
@@ -196,6 +201,44 @@ async function showPlayer() {
   await browser.storage.session.set({ playerWindowId: win.id });
 }
 
+// -- side panel ------------------------------------------------------------ //
+function usePanel(settings) {
+  return PANEL_SUPPORTED && settings.playerMode === "panel";
+}
+
+/* Both browsers only open the side panel from inside a user action handler, before
+ * its first await, so the player mode has to be known synchronously there:
+ * - Chrome: the panel is disabled in window mode, so opening it simply fails (this
+ *   also takes it out of Chrome's side panel menu);
+ * - Firefox: the background is an event page, which can mirror the mode in localStorage. */
+async function syncPlayerMode() {
+  const settings = await loadSettings();
+  if (browser.sidePanel) await browser.sidePanel.setOptions({ enabled: usePanel(settings) });
+  if (typeof localStorage !== "undefined") localStorage.setItem("playerMode", settings.playerMode);
+}
+
+function openSidePanel(tab) {
+  const report = (err) => console.debug("Kokoro Reader: side panel not opened:", err);
+  try {
+    if (browser.sidebarAction) {
+      const mode = localStorage.getItem("playerMode") || DEFAULT_SETTINGS.playerMode;
+      if (mode === "panel") browser.sidebarAction.open().catch(report);
+    } else if (browser.sidePanel && tab) {
+      browser.sidePanel.open({ windowId: tab.windowId }).catch(report);
+    }
+  } catch (err) {
+    report(err);
+  }
+}
+
+/* The panel opened before the handler knew there was anything to read; a session
+ * without text tells it to close again unless it is already playing something. */
+async function dismissPanel(windowId) {
+  if (!usePanel(await loadSettings())) return;
+  const session = { id: crypto.randomUUID(), text: "", windowId, at: Date.now() };
+  await browser.storage.session.set({ currentSession: session });
+}
+
 async function onWindowRemoved(windowId) {
   const { playerWindowId } = await browser.storage.session.get("playerWindowId");
   if (windowId === playerWindowId) {
@@ -204,42 +247,57 @@ async function onWindowRemoved(windowId) {
 }
 
 // -- triggers -------------------------------------------------------------- //
-/* source: where the text was read from ({ tabId, frameId }), used to deselect it. */
-async function readAloud(text, source = null) {
+/* source: where the text was read from ({ tabId, frameId }), used to deselect it.
+ * windowId: the browser window it was read in, whose side panel plays it. */
+async function readAloud(text, source, windowId) {
   const settings = await loadSettings();
   if (!voiceString(settings.voices)) {
+    await dismissPanel(windowId);
     await browser.runtime.openOptionsPage();
     return;
   }
+  const panel = usePanel(settings);
   // Publish the session before showing the window: a new window reads it on load,
-  // an existing one receives it through storage.onChanged.
-  const session = { id: crypto.randomUUID(), text };
+  // an existing one receives it through storage.onChanged. The side panel was already
+  // opened by the menu or shortcut handler.
+  const session = { id: crypto.randomUUID(), text, windowId: panel ? windowId : null };
   await browser.storage.session.set({ currentSession: session });
   // The text has been handed over, so the selection can go now. Clear it before the
   // player window opens: once the page's window has lost focus, Firefox can restore
   // a text box's old selection when the window is activated again.
   if (settings.deselectOnPlay) await clearSelection(source);
-  await showPlayer();
+  if (!panel) await showPlayer();
 }
 
 async function onMenuClicked(info, tab) {
   if (info.menuItemId !== MENU_ID) return;
+  openSidePanel(tab); // first, while the click still counts as user input
+  const windowId = tab ? tab.windowId : null;
   const found = await getSelectedText(tab, info.frameId || 0, info.selectionText || "");
   const text = found.text.trim();
-  if (text) await readAloud(text, found);
+  if (text) {
+    await readAloud(text, found, windowId);
+  } else {
+    await dismissPanel(windowId);
+  }
 }
 
 async function onCommand(command, tab) {
   if (command !== READ_COMMAND) return;
+  // First, while the key press still counts as user input; whether there is a
+  // selection isn't known yet, so the panel is dismissed again if there isn't.
+  openSidePanel(tab);
   if (!tab) {
     // Older Firefox versions don't pass the tab to onCommand.
     [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
   }
+  const windowId = tab ? tab.windowId : null;
   const found = await getSelectedText(tab);
   const text = found.text.trim();
   if (text) {
-    await readAloud(text, found);
+    await readAloud(text, found, windowId);
   } else {
     flashNothingSelected();
+    await dismissPanel(windowId);
   }
 }

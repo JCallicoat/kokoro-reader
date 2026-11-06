@@ -1,5 +1,6 @@
-/* Player window: owns the speech request, the PCM buffer (in an AudioWorklet)
- * and the playback controls. One window, reused for every new selection. */
+/* Player (side panel or popup window): owns the speech request, the PCM buffer (in
+ * an AudioWorklet) and the playback controls. One player, reused for every new
+ * selection; side panels in other browser windows stop when a new one starts. */
 
 "use strict";
 
@@ -27,6 +28,13 @@ let session = null;
 let dragging = false;
 let widthFitted = false;
 let saving = false; // Save in progress: playback is held and new selections are ignored
+
+/* Where this player is shown. A side panel belongs to a normal browser window; the
+ * popup is a window of its own. */
+const placement = browser.windows.getCurrent().then(
+  (win) => ({ panel: win.type !== "popup", windowId: win.id }),
+  () => ({ panel: false, windowId: null })
+);
 
 // -- audio context ----------------------------------------------------------- //
 function ensureContext(rate) {
@@ -300,11 +308,13 @@ function scrub(direction) {
   }
 }
 
-/* windows.remove is reliable for extension-created popups; window.close() is the fallback. */
+/* windows.remove is reliable for extension-created popups; window.close() is the fallback.
+ * In a side panel the current window is the user's browser window, which must be left
+ * alone; window.close() closes the panel instead. */
 function closeWindow() {
   browser.windows
     .getCurrent()
-    .then((win) => browser.windows.remove(win.id))
+    .then((win) => (win.type === "popup" ? browser.windows.remove(win.id) : window.close()))
     .catch(() => window.close());
 }
 
@@ -556,6 +566,7 @@ async function fitWindow() {
     await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     if (!window.outerHeight || !window.innerHeight) return;
     const win = await browser.windows.getCurrent();
+    if (win.type !== "popup") return; // side panel: the browser window isn't ours to resize
     if (win.state !== "normal") return; // leave maximized/fullscreen windows (or WM rules) alone
     const chromeHeight = window.outerHeight - window.innerHeight;
     const chromeWidth = window.outerWidth - window.innerWidth;
@@ -574,11 +585,41 @@ async function fitWindow() {
 }
 
 // -- startup ----------------------------------------------------------------- //
-browser.storage.onChanged.addListener((changes, area) => {
-  if (area !== "session" || !changes.currentSession) return;
-  const next = changes.currentSession.newValue;
+/* Sessions read in panel mode name the browser window whose panel plays them; window
+ * mode sessions name none. A player the session isn't meant for stops, so only one
+ * plays at a time. A session without text means the menu or shortcut found nothing to
+ * read: the panel it opened closes again unless it is already playing something. */
+async function onSession(next) {
   // A selection read while the save dialog is open is dropped rather than queued.
-  if (next && next.id && !saving) startSession(next);
+  if (!next || !next.id || saving || (session && session.id === next.id)) return;
+  const here = await placement;
+  const target = typeof next.windowId === "number" ? next.windowId : null;
+  const mine = here.panel ? target === here.windowId : target === null;
+  if (!mine) {
+    if (next.text && session) {
+      teardown();
+      render();
+      if (!settings.keepPlayerOpen) closeWindow();
+    }
+    return;
+  }
+  // The player has taken the session, so a panel opened later doesn't replay it.
+  browser.storage.session.get("currentSession").then(({ currentSession }) => {
+    if (currentSession && currentSession.id === next.id) browser.storage.session.remove("currentSession");
+  });
+  if (!next.text) {
+    if (!session && Date.now() - (next.at || 0) < PANEL_DISMISS_MAX_AGE_MS) closeWindow();
+    return;
+  }
+  // Chrome focuses a panel it opens. Firefox leaves focus in the page and currently
+  // ignores focus() from the sidebar, element.focus() included; this is kept in case
+  // that changes. Until then the panel needs a click for its keys.
+  if (here.panel) window.focus();
+  startSession(next);
+}
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "session" && changes.currentSession) onSession(changes.currentSession.newValue);
 });
 
 // Settings saved while the player is open apply straight away where they can.
@@ -616,9 +657,5 @@ window.addEventListener("pagehide", teardown);
   render();
   fitWindow();
   const { currentSession } = await browser.storage.session.get("currentSession");
-  if (currentSession && currentSession.id) {
-    startSession(currentSession);
-  } else {
-    render();
-  }
+  await onSession(currentSession);
 })();

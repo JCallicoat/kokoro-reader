@@ -3,7 +3,8 @@
 Right-click selected text and choose **Read selection aloud**. The text is sent to a
 Kokoro-FastAPI server, or another server with the OpenAI text-to-speech API
 (`POST /v1/audio/speech`, raw PCM, streamed), buffered in memory and played in a
-small player window with Play/Pause, Stop, Save and a seek slider.
+small player, in the browser's side panel or a separate window, with Play/Pause,
+Stop, Save and a seek slider.
 
 Source, issues and releases: <https://github.com/JCallicoat/kokoro-reader>
 
@@ -92,7 +93,8 @@ OpenAI's own API.
 
 **Alt+Shift+R** reads the current selection, the same as the context-menu item. It
 works in any tab while a browser window is focused. If nothing is selected, the
-toolbar icon briefly shows a "?" badge.
+toolbar icon briefly shows a "?" badge (and a side panel that opened for it closes
+again).
 
 - **Firefox:** change or clear it under **Keyboard shortcut** in Settings (click the
   box, press the keys, then Save), or in about:addons → gear menu → Manage Extension
@@ -103,7 +105,15 @@ toolbar icon briefly shows a "?" badge.
 
 ## Player
 
-- **Play/Pause** (Space), **Stop** (Esc) — Stop always closes the window.
+- **Show player in** (Player settings): **Side panel** (the default) or **Separate
+  window**. The side panel opens in the browser window you're reading in; reading
+  in another browser window stops the panel in the first one. Firefox shows one
+  sidebar at a time, so the player takes the place of Bookmarks, History or another
+  extension's sidebar. Firefox for Android has no side panel and always uses a window.
+- **Play/Pause** (Space), **Stop** (Esc) — Stop always closes the panel or window.
+  In a very narrow side panel the Save button is hidden. Firefox doesn't let the
+  sidebar take keyboard focus from the page, so click in the panel before using
+  Space, Esc or the arrow keys there (Chrome focuses the panel when it opens).
 - **Seek slider** — click or drag within the audio received so far.
 - **Left/Right arrow** — scrub by the step set in Advanced settings.
 - **Save** (download icon) — once all the audio has arrived, saves it through the
@@ -112,9 +122,10 @@ toolbar icon briefly shows a "?" badge.
   The first save asks for permission to download files. Playback pauses while the
   dialog is open and resumes afterwards; a selection read meanwhile is ignored.
 - Choosing *Read selection aloud* while the player is open replaces the current audio
-  in the same window.
-- When playback finishes the window closes, unless **Keep player open after playback**
-  is ticked; then Play replays from the start.
+  in the same player.
+- With **Keep player open when playback ends** ticked (the default), the player
+  stays open when the audio ends and Play replays it from the start; untick it to
+  have the panel or window close.
 - **Loop playback after end** (only available with *Keep player open* ticked, off by
   default) starts the audio again from the beginning each time it reaches the end.
 - **Deselect text when playback starts** (under Advanced settings, off by default)
@@ -136,6 +147,8 @@ mixed from the two colors. With the box unticked, the player follows the system
 light/dark theme.
 
 ## Window-manager rules (KWin)
+
+These apply to the separate player window only.
 
 The player page title is always `Kokoro Reader Player`. The browser may add its own
 text around it (for example `Kokoro Reader Player — Mozilla Firefox`), so match on a

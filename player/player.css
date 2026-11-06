@@ -54,6 +54,10 @@ button:disabled { opacity: 0.55; cursor: default; }
 #playPause.playing .icon-pause { display: inline; }
 #playPause { min-width: 92px; }
 button.icon-only { padding: 5px 8px; }
+/* The narrowest side panels only have room for Play/Pause and Stop. */
+@media (max-width: 250px) {
+  #save { display: none; }
+}
 
 #seek { width: 100%; margin: 0; accent-color: var(--accent); }
 
